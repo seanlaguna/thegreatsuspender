@@ -59,10 +59,24 @@ var tgs = (function() {
         }*/
         gsUtils.setGsHistory(gsHistory);
     }
+    
+    function isSuspended(tab) {
+
+        // this is what I like to call a "hack"
+        if (tab.url.indexOf('chrome-extension:') == 0 &&
+                tab.url.indexOf('suspended.html') > -1) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     function isSpecialTab(tab) {
 
-        if (tab.url.indexOf('chrome-extension:') == 0 ||
+        // this is what I like to call a "hack"
+        if (isSuspended(tab)) {
+            return false;
+        } else if (tab.url.indexOf('chrome-extension:') == 0 ||
                 tab.url.indexOf('chrome:') == 0 ||
                 tab.url.indexOf('chrome-devtools:') == 0 ||
                 tab.url.indexOf('file:') == 0 ||
@@ -158,28 +172,14 @@ var tgs = (function() {
                 if (!response) {
                     chrome.tabs.reload(tabId);
                 }
-            });
+            });*/
 
-            //unsuspend if tab has been suspended
-            requestTabUnsuspend(curWindow.tabs[i].id);*/
+            // unsuspend if tab has been suspended
+            // this truly is a "request" -- in the case that a URL cannot be
+            // parsed out of the suspended URL, or in the case that the tab
+            // isn't suspended, nothing will happen
+            requestTabUnsuspend(curWindow.tabs[i]);
 
-            currentTab = curWindow.tabs[i];
-
-            //detect suspended tabs by looking for ones without content scripts
-            if (!isSpecialTab(currentTab)) {
-
-                (function() {
-                    var tabId = currentTab.id;
-                    //test if a content script is active by sending a 'requestInfo' message
-                    chrome.tabs.sendMessage(tabId, {action: 'requestInfo'}, function(response) {
-
-                        //if no response, then assume suspended
-                        if (typeof(response) === 'undefined') {
-                            requestTabUnsuspend(tabId);
-                        }
-                    });
-                })();
-            }
         }
     }
 
@@ -242,21 +242,28 @@ var tgs = (function() {
         }
     }
 
-    function requestTabUnsuspend(tabId) {
-        /*chrome.tabs.sendMessage(tabId, {
-            action: 'unsuspendTab'
-        }, function(response) {
-            if (!response) {
-                chrome.tabs.reload(tabId);
-            }
-        });*/
-        chrome.tabs.reload(tabId);
+    function requestTabUnsuspend(tab) {
+        // only attempt to unsuspend if tab is actually suspended
+        // this prevents awful things from happening when unsuspendTab tries to
+        // parse the real url out from the suspended url
+        if (isSuspended(tab)) {
+            console.log('about to unsuspend: ' + tab.url);
+            unsuspendTab(tab);
+        }
     }
 
     function unsuspendTab(tab) {
-        chrome.tabs.reload(tab.id);
-    }
+        // get index of where url= starts, http:// begins 4 spots later
+        var startIndex = tab.url.indexOf('url=') + 4;
 
+        // I have no idea what javascript coding practices are
+        var realUrl = 'badurl';
+        if (startIndex > 3) {
+            realUrl = decodeURIComponent(tab.url.slice(startIndex));
+            console.log('unsuspended url: ' + realUrl);
+            chrome.tabs.update(tab.id, {url: realUrl});
+        }
+    }
 
     function suspendAllTabsOnStartup() {
 
@@ -338,8 +345,8 @@ var tgs = (function() {
                 });
 
             } else if (request.action === 'confirmTabUnsuspend') {
-                unsuspendTab(sender.tab);
-
+                requestTabUnsuspend(sender.tab);
+            
             } else if (request.action === 'suspendTab') {
                 requestTabSuspension(sender.tab);
 

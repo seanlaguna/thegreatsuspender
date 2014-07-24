@@ -124,8 +124,8 @@
         }
 */
         //update url with actual url
-        console.log('replacing state: ' + url);
-        window.history.replaceState(null, null, url);
+        //console.log('replacing state: ' + url);
+        //window.history.replaceState(null, null, url);
     }
 
     function unsuspendTab() {
@@ -134,6 +134,8 @@
         try {
             chrome.runtime.sendMessage({action: 'confirmTabUnsuspend'});
         } catch (err) {
+            // seanlaguna: I can put a hook here too if necessary in case the
+            // above fails, but ideally it wouldn't be necessary
             window.location.reload();
         }
     }
@@ -159,8 +161,8 @@
 
         //update url with suspended url
         var url = gsUtils.generateSuspendedUrl(window.location.href);
-        window.history.replaceState(null, null, url);
-        document.body.style.cursor = 'wait';
+        //window.history.replaceState(null, null, url);
+        //document.body.style.cursor = 'wait';
     };
 
 }());
